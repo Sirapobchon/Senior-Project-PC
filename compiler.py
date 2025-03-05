@@ -19,7 +19,7 @@ def refresh_ports():
     else:
         port_menu.configure(values=["No Ports Found"])
         port_var.set("No Ports Found")
-    log_message("Ports refreshed.")
+    log_message("Ports refreshed.","terminal")
 
 def connect_serial():
     """ Connect to the selected serial port """
@@ -78,7 +78,7 @@ def debug_task():
 
     try:
         ser.write(b"<DEBUG>\n")  # Send the <DEBUG> command
-        log_message("> <DEBUG>")  # Log the sent command
+        log_message("> <DEBUG>","terminal")  # Log the sent command
         
         # Wait and read response from ATMega328P
         response = []
@@ -90,12 +90,12 @@ def debug_task():
 
         # Display the received debug information
         if response:
-            log_message("\n".join(response))
+            log_message("\n".join(response),"monitor")
         else:
-            log_message("No debug information received.")
+            log_message("No debug information received.","terminal")
 
     except Exception as e:
-        log_message(f"Error: {str(e)}")
+        log_message(f"Error: {str(e)}","terminal")
 
 
 
@@ -145,7 +145,7 @@ def send_task_file():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to send file\n{str(e)}")
 
-def log_message(msg, target="terminal"):
+def log_message(msg, target=""):
     """Log messages to the selected monitor (Read-Only)"""
     
     # Choose target monitor: 'terminal' for serial communication, 'monitor' for List & Debug only
