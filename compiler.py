@@ -70,15 +70,15 @@ def list_task():
 
         
 def debug_task():
-    """Send <DEBUG> command to ATMega328P and display received debug info in monitor"""
+    """Send <DEBUG> command to ATMega328P and display received debug info."""
     global ser
     if not ser or not ser.is_open:
         messagebox.showwarning("Error", "Not connected to serial port!")
         return
 
     try:
-        log_message("> Sending <DEBUG> Command...", "monitor")  # Show sent command in monitor
         ser.write(b"<DEBUG>\n")  # Send the <DEBUG> command
+        log_message("> <DEBUG>")  # Log the sent command
         
         # Wait and read response from ATMega328P
         response = []
@@ -88,14 +88,15 @@ def debug_task():
             if line:
                 response.append(line)
 
-        # Display everything (sent command + received response) in monitor
+        # Display the received debug information
         if response:
-            log_message("\n".join(response), "monitor")  # Debug info only in monitor
+            log_message("\n".join(response))
         else:
-            log_message("No debug information received.", "monitor")
+            log_message("No debug information received.")
 
     except Exception as e:
-        log_message(f"Error: {str(e)}", "monitor")  # Now errors also go to monitor
+        log_message(f"Error: {str(e)}")
+
 
 
 
