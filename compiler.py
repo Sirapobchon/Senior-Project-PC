@@ -10,6 +10,18 @@ def list_ports():
     """ List available serial ports """
     return [port.device for port in serial.tools.list_ports.comports()]
 
+def refresh_ports():
+    """Refresh the available serial ports and update the dropdown menu."""
+    ports = list_ports()  # Get available ports
+    if ports:
+        port_menu.configure(values=ports)
+        port_var.set(ports[0])  # Set to first available port
+    else:
+        port_menu.configure(values=["No Ports Found"])
+        port_var.set("No Ports Found")
+    log_message("Ports refreshed.")
+
+
 def connect_serial():
     """ Connect to the selected serial port """
     global ser
@@ -124,29 +136,42 @@ root.resizable(False, False)  # Disable resizing (optional)
 
 
 # Port Selection
-port_var = ctk.StringVar(value=list_ports()[0] if list_ports() else "")
+port_var = ctk.StringVar(value=list_ports()[0] if list_ports() else "No Ports Found")
 port_label = ctk.CTkLabel(root, text="Port:")
 port_label.grid(row=0, column=0, padx=5, pady=5)
+
 port_menu = ctk.CTkOptionMenu(root, variable=port_var, values=list_ports())
 port_menu.grid(row=0, column=1, padx=5, pady=5)
 
-# Baud Rate Selection
+# Refresh Button (Move it properly behind the Port dropdown)
+refresh_btn = ctk.CTkButton(root, text="⟳", width=40, command=refresh_ports)
+refresh_btn.grid(row=0, column=2, padx=5, pady=5)
+
+# Baud Rate Selection (Move to column 3)
 baud_var = ctk.StringVar(value="9600")
 baud_label = ctk.CTkLabel(root, text="Baud:")
-baud_label.grid(row=0, column=2, padx=5, pady=5)
-baud_menu = ctk.CTkOptionMenu(root, variable=baud_var, values=["9600", "115200", "57600", "4800", "1200"])
-baud_menu.grid(row=0, column=3, padx=5, pady=5)
+baud_label.grid(row=0, column=3, padx=5, pady=5)
 
-# Connect & Disconnect Buttons
+baud_menu = ctk.CTkOptionMenu(root, variable=baud_var, values=["9600", "115200", "57600", "4800", "1200"])
+baud_menu.grid(row=0, column=4, padx=5, pady=5)
+
+# Connect & Disconnect Buttons (Shift to next columns)
 connect_btn = ctk.CTkButton(root, text="Connect", command=connect_serial)
-connect_btn.grid(row=0, column=4, padx=5, pady=5)
+connect_btn.grid(row=0, column=5, padx=5, pady=5)
 
 disconnect_btn = ctk.CTkButton(root, text="Disconnect", command=disconnect_serial)
-disconnect_btn.grid(row=0, column=5, padx=5, pady=5)
+disconnect_btn.grid(row=0, column=6, padx=5, pady=5)
 
-# Serial Monitor
-monitor = ctk.CTkTextbox(root, height=250, width=580, wrap="word")
-monitor.grid(row=1, column=0, columnspan=6, padx=5, pady=5, sticky="ew")
+
+
+# Make the window grid expandable
+root.grid_columnconfigure(0, weight=1)  # Expand columns
+root.grid_rowconfigure(1, weight=1)  # Expand row where the monitor is
+
+# Serial Monitor (Auto Resize)
+monitor = ctk.CTkTextbox(root, height=250, wrap="word")  # Removed fixed width
+monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")  # Auto expand
+
 
 # Command Entry
 #command_entry = ctk.CTkEntry(root, width=400)
@@ -156,7 +181,9 @@ monitor.grid(row=1, column=0, columnspan=6, padx=5, pady=5, sticky="ew")
 
 #<LIST> Button
 list_btn = ctk.CTkButton(root, text="List Task", command=list_task)
-list_btn.grid(row=2, column=0, columnspan=6, padx=5, pady=10)
+list_btn.grid(row=2, column=0, columnspan=7, padx=5, pady=10)
+
+
 
 # Send Task File Button
 #task_btn = ctk.CTkButton(root, text="Send Task File", command=send_task_file)
