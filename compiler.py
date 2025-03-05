@@ -77,8 +77,8 @@ def debug_task():
         return
 
     try:
+        log_message("> Sending <DEBUG> Command...", "monitor")  # Show sent command in monitor
         ser.write(b"<DEBUG>\n")  # Send the <DEBUG> command
-        log_message("> <DEBUG>", "terminal")  # Log the sent command in terminal
         
         # Wait and read response from ATMega328P
         response = []
@@ -88,14 +88,15 @@ def debug_task():
             if line:
                 response.append(line)
 
-        # Display the received debug information in monitor
+        # Display everything (sent command + received response) in monitor
         if response:
             log_message("\n".join(response), "monitor")  # Debug info only in monitor
         else:
             log_message("No debug information received.", "monitor")
 
     except Exception as e:
-        log_message(f"Error: {str(e)}", "terminal")  # Errors go to terminal
+        log_message(f"Error: {str(e)}", "monitor")  # Now errors also go to monitor
+
 
 
 
