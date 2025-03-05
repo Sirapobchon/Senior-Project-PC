@@ -147,6 +147,7 @@ def log_message(msg):
     """ Log messages to the Serial Monitor """
     monitor.insert(ctk.END, msg + "\n")
     monitor.yview(ctk.END)
+    
 
 # ---------------- GUI Setup ---------------- #
 ctk.set_appearance_mode("Dark")
