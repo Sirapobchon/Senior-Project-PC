@@ -21,6 +21,7 @@ def refresh_ports():
         port_var.set("No Ports Found")
     log_message("Ports refreshed.")
 
+
 def connect_serial():
     """ Connect to the selected serial port """
     global ser
@@ -66,34 +67,6 @@ def list_task():
             log_message("\n".join(response))
         else:
             log_message("No tasks found.")
-
-    except Exception as e:
-        log_message(f"Error: {str(e)}")
-        
-def debug_task():
-    """Send <DEBUG> command to ATMega328P and display received debug info."""
-    global ser
-    if not ser or not ser.is_open:
-        messagebox.showwarning("Error", "Not connected to serial port!")
-        return
-
-    try:
-        ser.write(b"<DEBUG>\n")  # Send the <DEBUG> command
-        log_message("> <DEBUG>")  # Log the sent command
-        
-        # Wait and read response from ATMega328P
-        response = []
-        ser.timeout = 2  # Set a timeout for reading
-        while ser.in_waiting or len(response) == 0:
-            line = ser.readline().decode('utf-8', errors='ignore').strip()
-            if line:
-                response.append(line)
-
-        # Display the received debug information
-        if response:
-            log_message("\n".join(response))
-        else:
-            log_message("No debug information received.")
 
     except Exception as e:
         log_message(f"Error: {str(e)}")
@@ -200,7 +173,7 @@ monitor = ctk.CTkTextbox(root, height=250, wrap="word")  # Removed fixed width
 monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")  # Auto expand
 
 
-#Command Entry
+# Command Entry
 #command_entry = ctk.CTkEntry(root, width=400)
 #command_entry.grid(row=2, column=0, columnspan=4, padx=5, pady=5)
 #send_btn = ctk.CTkButton(root, text="Send", command=send_command)
@@ -209,10 +182,6 @@ monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")  # Au
 #<LIST> Button
 list_btn = ctk.CTkButton(root, text="List Task", command=list_task)
 list_btn.grid(row=2, column=0, columnspan=7, padx=5, pady=10)
-
-#<DEBUG> Button
-debug_btn = ctk.CTkButton(root, text="Debug", command=debug_task)
-debug_btn.grid(row=3, column=0, columnspan=7, padx=5, pady=10)
 
 
 
