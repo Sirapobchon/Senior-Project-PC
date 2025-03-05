@@ -70,7 +70,7 @@ def list_task():
 
         
 def debug_task():
-    """Send <DEBUG> command to ATMega328P and display received debug info."""
+    """Send <DEBUG> command to ATMega328P and display received debug info in monitor"""
     global ser
     if not ser or not ser.is_open:
         messagebox.showwarning("Error", "Not connected to serial port!")
@@ -78,7 +78,7 @@ def debug_task():
 
     try:
         ser.write(b"<DEBUG>\n")  # Send the <DEBUG> command
-        log_message("> <DEBUG>")  # Log the sent command
+        log_message("> <DEBUG>", "terminal")  # Log the sent command in terminal
         
         # Wait and read response from ATMega328P
         response = []
@@ -88,14 +88,15 @@ def debug_task():
             if line:
                 response.append(line)
 
-        # Display the received debug information
+        # Display the received debug information in monitor
         if response:
-            log_message("\n".join(response))
+            log_message("\n".join(response), "monitor")  # Debug info only in monitor
         else:
-            log_message("No debug information received.")
+            log_message("No debug information received.", "monitor")
 
     except Exception as e:
-        log_message(f"Error: {str(e)}")
+        log_message(f"Error: {str(e)}", "terminal")  # Errors go to terminal
+
 
 
 def send_command():
@@ -142,10 +143,21 @@ def send_task_file():
     except Exception as e:
         messagebox.showerror("Error", f"Failed to send file\n{str(e)}")
 
-def log_message(msg):
-    """ Log messages to the Serial Monitor """
-    monitor.insert(ctk.END, msg + "\n")
-    monitor.yview(ctk.END)
+def log_message(msg, target="terminal"):
+    """Log messages to the selected monitor (Read-Only)"""
+    
+    # Choose target monitor: 'terminal' for serial communication, 'monitor' for List & Debug only
+    if target == "terminal":
+        terminal_monitor.configure(state="normal")
+        terminal_monitor.insert(ctk.END, msg + "\n")
+        terminal_monitor.yview(ctk.END)
+        terminal_monitor.configure(state="disabled")  # Re-enable read-only
+    elif target == "monitor":
+        monitor.configure(state="normal") 
+        monitor.insert(ctk.END, msg + "\n")
+        monitor.yview(ctk.END)
+        monitor.configure(state="disabled")  # Re-enable read-only
+
 
 # ---------------- GUI Setup ---------------- #
 ctk.set_appearance_mode("Dark")
@@ -209,20 +221,6 @@ debug_btn.grid(row=2, column=6, columnspan=7,padx=5, pady=5, sticky="wn")
 # Read-Only Terminal Monitor
 #terminal_monitor.configure(state="disabled")
 
-def log_message(msg, target="terminal"):
-    """Log messages to the selected monitor (Read-Only)"""
-    
-    # Choose target monitor: 'terminal' for serial communication, 'monitor' for List & Debug only
-    if target == "terminal":
-        terminal_monitor.configure(state="normal")
-        terminal_monitor.insert(ctk.END, msg + "\n")
-        terminal_monitor.yview(ctk.END)
-        #terminal_monitor.configure(state="disabled")
-    elif target == "monitor":
-        monitor.configure(state="normal")
-        monitor.insert(ctk.END, msg + "\n")
-        monitor.yview(ctk.END)
-        #monitor.configure(state="disabled")
 
 
 #Command Entry
