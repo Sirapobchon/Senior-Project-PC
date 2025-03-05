@@ -43,7 +43,7 @@ def disconnect_serial():
         ser = None
 
 def list_task():
-    """Send <LIST> command to ATMega328P and display received task list."""
+    """Send <LIST> command to ATMega328P and display received task list in monitor"""
     global ser
     if not ser or not ser.is_open:
         messagebox.showwarning("Error", "Not connected to serial port!")
@@ -51,24 +51,23 @@ def list_task():
 
     try:
         ser.write(b"<LIST>\n")  # Send the <LIST> command
-        log_message("> <LIST>")  # Log the sent command
+        log_message("> <LIST>", "terminal")  # Log in terminal
         
-        # Wait and read response from ATMega328P
         response = []
-        ser.timeout = 2  # Set a timeout for reading
+        ser.timeout = 2
         while ser.in_waiting or len(response) == 0:
             line = ser.readline().decode('utf-8', errors='ignore').strip()
             if line:
                 response.append(line)
 
-        # Display the received task list
         if response:
-            log_message("\n".join(response))
+            log_message("\n".join(response), "monitor")  # Only list tasks in monitor
         else:
-            log_message("No tasks found.")
+            log_message("No tasks found.", "monitor")
 
     except Exception as e:
-        log_message(f"Error: {str(e)}")
+        log_message(f"Error: {str(e)}", "terminal")  # Errors go to terminal
+
         
 def debug_task():
     """Send <DEBUG> command to ATMega328P and display received debug info."""
@@ -159,7 +158,7 @@ root.title("ATMega328P Serial Monitor & Task Sender")
 root.update_idletasks()
 root.minsize(root.winfo_width(), root.winfo_height())  # Set minimum size based on content
 
-root.resizable(False, False)  # Disable resizing (optional)
+#root.resizable(False, False)  # Disable resizing (optional)
 
 
 # Port Selection
@@ -190,14 +189,40 @@ disconnect_btn = ctk.CTkButton(root, text="Disconnect", command=disconnect_seria
 disconnect_btn.grid(row=0, column=6, padx=5, pady=5)
 
 
-
-# Make the window grid expandable
-root.grid_columnconfigure(0, weight=1)  # Expand columns
-root.grid_rowconfigure(1, weight=1)  # Expand row where the monitor is
-
 # Serial Monitor (Auto Resize)
 monitor = ctk.CTkTextbox(root, height=250, wrap="word")  # Removed fixed width
 monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")  # Auto expand
+monitor.configure(state="disabled")
+
+# Terminal Monitor (For all Serial Communication)
+terminal_monitor = ctk.CTkTextbox(root, width=420, height=150, wrap="word")
+terminal_monitor.grid(row=2, column=0, columnspan=7, padx=5, pady=5, sticky="w")
+
+#<LIST> Button
+list_btn = ctk.CTkButton(root, text="List Task", command=list_task)
+list_btn.grid(row=2, column=5,columnspan=7, padx=5, pady=5, sticky="wn")
+
+#<DEBUG> Button
+debug_btn = ctk.CTkButton(root, text="Debug", command=debug_task)
+debug_btn.grid(row=2, column=6, columnspan=7,padx=5, pady=5, sticky="wn")
+
+# Read-Only Terminal Monitor
+#terminal_monitor.configure(state="disabled")
+
+def log_message(msg, target="terminal"):
+    """Log messages to the selected monitor (Read-Only)"""
+    
+    # Choose target monitor: 'terminal' for serial communication, 'monitor' for List & Debug only
+    if target == "terminal":
+        terminal_monitor.configure(state="normal")
+        terminal_monitor.insert(ctk.END, msg + "\n")
+        terminal_monitor.yview(ctk.END)
+        #terminal_monitor.configure(state="disabled")
+    elif target == "monitor":
+        monitor.configure(state="normal")
+        monitor.insert(ctk.END, msg + "\n")
+        monitor.yview(ctk.END)
+        #monitor.configure(state="disabled")
 
 
 #Command Entry
@@ -206,13 +231,6 @@ monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")  # Au
 #send_btn = ctk.CTkButton(root, text="Send", command=send_command)
 #send_btn.grid(row=2, column=4, columnspan=2, padx=5, pady=5)
 
-#<LIST> Button
-list_btn = ctk.CTkButton(root, text="List Task", command=list_task)
-list_btn.grid(row=2, column=0, columnspan=7, padx=5, pady=10)
-
-#<DEBUG> Button
-debug_btn = ctk.CTkButton(root, text="Debug", command=debug_task)
-debug_btn.grid(row=3, column=0, columnspan=7, padx=5, pady=10)
 
 
 
