@@ -164,76 +164,63 @@ ctk.set_default_color_theme("blue")
 root = ctk.CTk()
 root.title("ATMega328P Serial Monitor & Task Sender")
 
-# Let Tkinter calculate the required size
-root.update_idletasks()
-root.minsize(root.winfo_width(), root.winfo_height())  # Set minimum size based on content
+# Port Selection Frame (row 0 only)
+port_frame = ctk.CTkFrame(root)
+port_frame.grid(row=0, column=0, columnspan=7, padx=5, pady=5, sticky="ew")
 
-#root.resizable(False, False)  # Disable resizing (optional)
-
-
-# Port Selection
 port_var = ctk.StringVar(value=list_ports()[0] if list_ports() else "No Ports Found")
-port_label = ctk.CTkLabel(root, text="Port:")
+port_label = ctk.CTkLabel(port_frame, text="Port:")
 port_label.grid(row=0, column=0, padx=5, pady=5)
 
-port_menu = ctk.CTkOptionMenu(root, variable=port_var, values=list_ports())
+port_menu = ctk.CTkOptionMenu(port_frame, variable=port_var, values=list_ports())
 port_menu.grid(row=0, column=1, padx=5, pady=5)
 
-# Refresh Button (Move it properly behind the Port dropdown)
-refresh_btn = ctk.CTkButton(root, text="⟳", width=40, command=refresh_ports)
+refresh_btn = ctk.CTkButton(port_frame, text="⟳", width=40, command=refresh_ports)
 refresh_btn.grid(row=0, column=2, padx=5, pady=5)
 
-# Baud Rate Selection (Move to column 3)
 baud_var = ctk.StringVar(value="9600")
-baud_label = ctk.CTkLabel(root, text="Baud:")
+baud_label = ctk.CTkLabel(port_frame, text="Baud:")
 baud_label.grid(row=0, column=3, padx=5, pady=5)
 
-baud_menu = ctk.CTkOptionMenu(root, variable=baud_var, values=["9600", "115200", "57600", "4800", "1200"])
+baud_menu = ctk.CTkOptionMenu(port_frame, variable=baud_var, values=["9600", "115200", "57600", "4800", "1200"])
 baud_menu.grid(row=0, column=4, padx=5, pady=5)
 
-# Connect & Disconnect Buttons (Shift to next columns)
-connect_btn = ctk.CTkButton(root, text="Connect", command=connect_serial)
+connect_btn = ctk.CTkButton(port_frame, text="Connect", command=connect_serial)
 connect_btn.grid(row=0, column=5, padx=5, pady=5)
 
-disconnect_btn = ctk.CTkButton(root, text="Disconnect", command=disconnect_serial)
+disconnect_btn = ctk.CTkButton(port_frame, text="Disconnect", command=disconnect_serial)
 disconnect_btn.grid(row=0, column=6, padx=5, pady=5)
 
-
 # Serial Monitor (Auto Resize)
-monitor = ctk.CTkTextbox(root, height=250, wrap="word")  # Removed fixed width
-monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")  # Auto expand
-monitor.configure(state="disabled")
+monitor = ctk.CTkTextbox(root, height=250, wrap="word", state="disabled")
+monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")
 
-# Terminal Monitor (For all Serial Communication)
-terminal_monitor = ctk.CTkTextbox(root, width=420, height=150, wrap="word")
-terminal_monitor.grid(row=2, column=0, columnspan=7, padx=5, pady=5, sticky="w")
+# Row 2 Frames: Terminal and Button Section (Equal Size)
+row2_frame = ctk.CTkFrame(root)
+row2_frame.grid(row=2, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")
+row2_frame.grid_columnconfigure(0, weight=1)  # Equal weight for both frames
+row2_frame.grid_columnconfigure(1, weight=1)
 
-#<LIST> Button
-list_btn = ctk.CTkButton(root, text="List Task", command=list_task)
-list_btn.grid(row=2, column=5,columnspan=7, padx=5, pady=5, sticky="wn")
+# Terminal Frame
+terminal_frame = ctk.CTkFrame(row2_frame)
+terminal_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+terminal_frame.grid_rowconfigure(0, weight=1)  # Make terminal expand fully
+terminal_frame.grid_columnconfigure(0, weight=1)
 
-#<DEBUG> Button
-debug_btn = ctk.CTkButton(root, text="Debug", command=debug_task)
-debug_btn.grid(row=2, column=6, columnspan=7,padx=5, pady=5, sticky="wn")
+terminal_monitor = ctk.CTkTextbox(terminal_frame, wrap="word")
+terminal_monitor.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 
-# Read-Only Terminal Monitor
-#terminal_monitor.configure(state="disabled")
+# Button Frame
+button_frame = ctk.CTkFrame(row2_frame)
+button_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
 
+list_btn = ctk.CTkButton(button_frame, text="List Task", command=list_task)
+list_btn.grid(row=0, column=0, padx=5, pady=5)
 
+debug_btn = ctk.CTkButton(button_frame, text="Debug", command=debug_task)
+debug_btn.grid(row=1, column=0, padx=5, pady=5)
 
-#Command Entry
-#command_entry = ctk.CTkEntry(root, width=400)
-#command_entry.grid(row=2, column=0, columnspan=4, padx=5, pady=5)
-#send_btn = ctk.CTkButton(root, text="Send", command=send_command)
-#send_btn.grid(row=2, column=4, columnspan=2, padx=5, pady=5)
+delete_btn = ctk.CTkButton(button_frame, text="Delete Task")
+delete_btn.grid(row=2, column=0, padx=5, pady=5)
 
-
-
-
-# Send Task File Button
-#task_btn = ctk.CTkButton(root, text="Send Task File", command=send_task_file)
-#task_btn.grid(row=3, column=0, columnspan=6, padx=5, pady=10)
-
-# Auto Read Serial Data
-root.after(100, read_serial)
 root.mainloop()
