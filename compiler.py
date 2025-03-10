@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import serial
 import serial.tools.list_ports
+import time
 from tkinter import filedialog, messagebox
 
 # ---------------- Serial Communication ---------------- #
@@ -51,23 +52,44 @@ def list_task():
         return
 
     try:
-        ser.write(b"<LIST>\n")  # Send the <LIST> command
-        log_message("> <LIST>")  # Log in terminal
-        
+        ser.reset_input_buffer()  # Clear old data
+        ser.write(b"<LIST>\n")  # Send <LIST> command
+        log_terminal("Sending <LIST> Command...")  
+
+        time.sleep(0.5)  # Short delay for MCU response
+
         response = []
         ser.timeout = 2
+        found_task = False  # Track if any task is found
+
         while ser.in_waiting or len(response) == 0:
             line = ser.readline().decode('utf-8', errors='ignore').strip()
             if line:
-                response.append(line)
-
+                if line.startswith("List of Tasks"):
+                    continue  # Ignore "List of Tasks"
+                
+                if line == "No stored tasks found.":
+                    continue  # Ignore this message
+                
+                if "Slot" in line or "T ID" in line:
+                    log_message(line)  # Send to monitor
+                    found_task = True  # At least one task exists
+                else:
+                    response.append(line)  # Collect valid responses
+        
+        # Show first received line normally in the terminal
         if response:
-            log_message("\n".join(response)) 
-        else:
-            log_message("No tasks found.")
+            log_terminal(f"{response[0]}")  # Show first valid response
+        
+        # If no tasks found, display message in the terminal
+        if not found_task:
+            log_terminal("No tasks found.")
 
     except Exception as e:
-        log_terminal(f"Error: {str(e)}")  # Errors go to terminal
+        log_terminal(f"Error: {str(e)}")  # Handle errors
+
+
+
 
         
 def debug_task():
@@ -78,8 +100,10 @@ def debug_task():
         return
 
     try:
-        log_message("> Sending <DEBUG> Command...")  # Show sent command in monitor
+        log_terminal("Sending <DEBUG> Command...")  # Show sent command in monitor
         ser.write(b"<DEBUG>\n")  # Send the <DEBUG> command
+
+        time.sleep(0.5)  # Short delay for MCU response
         
         # Wait and read response from ATMega328P
         response = []
@@ -144,6 +168,18 @@ def send_task_file():
             log_message(f"Sent task file: {file_path}")
     except Exception as e:
         messagebox.showerror("Error", f"Failed to send file\n{str(e)}")
+
+
+def clear_monitor():
+    """Clear both the main monitor and the terminal monitor."""
+    monitor.configure(state="normal")  # Enable editing
+    monitor.delete("1.0", ctk.END)  # Clear content
+    monitor.configure(state="disabled")  # Disable editing again
+
+    terminal_monitor.configure(state="normal")  # Enable editing
+    terminal_monitor.delete("1.0", ctk.END)  # Clear content
+    terminal_monitor.configure(state="disabled")  # Disable editing again
+
 
 def log_message(msg):
         monitor.configure(state="normal") 
@@ -222,5 +258,8 @@ debug_btn.grid(row=1, column=0, padx=5, pady=5)
 
 delete_btn = ctk.CTkButton(button_frame, text="Delete Task")
 delete_btn.grid(row=2, column=0, padx=5, pady=5)
+
+clear_btn = ctk.CTkButton(button_frame, text="Clear Monitor", command=clear_monitor)
+clear_btn.grid(row=3, column=0, padx=5, pady=5)
 
 root.mainloop()
