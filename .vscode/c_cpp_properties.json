@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "AVR",
+            "includePath": [
+                "C:/avr-gcc-14.1.0-x64-windows/lib/gcc/avr/14.1.0/include",
+                "C:/avr-gcc-14.1.0-x64-windows/lib/gcc/avr/14.1.0/include-fixed",
+                "C:/avr-gcc-14.1.0-x64-windows/avr/include"
+            ],
+            "defines": [
+                "F_CPU=8000000UL",
+                "__AVR_ATmega328P__"
+            ],
+            "compilerPath": "C:/avr-gcc-14.1.0-x64-windows/bin/avr-gcc.exe",
+            "cStandard": "c11",
+            "cppStandard": "c++11",
+            "intelliSenseMode": "gcc-x64"
+        }
+    ],
+    "version": 4
+}
