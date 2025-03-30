@@ -120,9 +120,6 @@ def debug_task():
     except Exception as e:
         log_message(f"Error: {str(e)}")  # Now errors also go to monitor
 
-
-
-
 def send_command():
     """ Send command from input field """
     global ser
@@ -158,37 +155,71 @@ def send_task_file():
         return
 
     # Temporary default values — can later prompt GUI fields for these
-    task_id = 1
+    """ task_id = 1
     task_type = 0
     task_priority = 1
     status = 1  # 1 = running
-    flash_address = (0).to_bytes(4, 'little')  # Placeholder
+    flash_address = (0).to_bytes(4, 'little')  # Placeholder """
+        
+    # --- Popup: Ask for Task Parameters ---
+    popup = ctk.CTkToplevel(root)
+    popup.title("Task Configuration")
+    popup.geometry("300x240")
 
-    try:
-        with open(file_path, "rb") as file:
-            binary_data = file.read()
+    ctk.CTkLabel(popup, text="Task ID (0-9):").pack(pady=(10, 0))
+    id_entry = ctk.CTkEntry(popup)
+    id_entry.pack()
 
-        binary_size = len(binary_data)
-        if binary_size > 512:
-            messagebox.showwarning("Too Large", "Binary exceeds 512-byte task limit.")
-            return
+    ctk.CTkLabel(popup, text="Task Type (0=GPIO, 1=PWM, etc):").pack(pady=(10, 0))
+    type_entry = ctk.CTkEntry(popup)
+    type_entry.pack()
 
-        header = bytes([
-            task_id,
-            task_type,
-            task_priority,
-            binary_size & 0xFF,
-            (binary_size >> 8) & 0xFF,
-            status
-        ]) + flash_address
+    ctk.CTkLabel(popup, text="Priority (1=Low .. 3=High):").pack(pady=(10, 0))
+    priority_entry = ctk.CTkEntry(popup)
+    priority_entry.pack()
 
-        full_packet = b"<TASK:" + header + binary_data + b">"
+    def submit_task_info():
+        try:
+            task_id = int(id_entry.get())
+            task_type = int(type_entry.get())
+            task_priority = int(priority_entry.get())
 
-        ser.write(full_packet)
-        log_message(f"Sent task file '{file_path}' ({binary_size} bytes) with ID={task_id}, Type={task_type}")
+            if not (0 <= task_id <= 9):
+                raise ValueError("Task ID must be between 0–9")
 
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to send file:\n{str(e)}")
+            with open(file_path, "rb") as file:
+                binary_data = file.read()
+
+            binary_size = len(binary_data)
+            if binary_size > 512:
+                messagebox.showwarning("Too Large", "Binary exceeds 512-byte task limit.")
+                popup.destroy()
+                return
+
+            status = 1  # Running
+            flash_address = (0).to_bytes(4, 'little')  # Not used yet
+
+            header = bytes([
+                task_id,
+                task_type,
+                task_priority,
+                binary_size & 0xFF,
+                (binary_size >> 8) & 0xFF,
+                status
+            ]) + flash_address
+
+            full_packet = b"<TASK:" + header + binary_data + b">"
+
+            ser.write(full_packet)
+            log_message(f"Sent task '{file_path}' with ID={task_id}, Type={task_type}, Size={binary_size}")
+            popup.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Invalid input or file\n{str(e)}")
+            popup.destroy()
+
+    send_btn = ctk.CTkButton(popup, text="Send Task", command=submit_task_info)
+    send_btn.pack(pady=20)
 
 def clear_monitor():
     """Clear both the main monitor and the terminal monitor."""
@@ -276,10 +307,20 @@ list_btn.grid(row=0, column=0, padx=5, pady=5)
 debug_btn = ctk.CTkButton(button_frame, text="Debug", command=debug_task)
 debug_btn.grid(row=1, column=0, padx=5, pady=5)
 
+task_btn = ctk.CTkButton(button_frame, text="Task", command=send_task_file)
+task_btn.grid(row=2, column=0, padx=5, pady=5)
+
 delete_btn = ctk.CTkButton(button_frame, text="Delete Task")
-delete_btn.grid(row=2, column=0, padx=5, pady=5)
+delete_btn.grid(row=3, column=0, padx=5, pady=5)
 
 clear_btn = ctk.CTkButton(button_frame, text="Clear Monitor", command=clear_monitor)
-clear_btn.grid(row=3, column=0, padx=5, pady=5)
+clear_btn.grid(row=4, column=0, padx=5, pady=5)
+
+# Command Entry & Send Button (Disabled for now)
+command_entry = ctk.CTkEntry(button_frame, placeholder_text="Enter UART Command")
+# command_entry.grid(row=5, column=0, padx=5, pady=(10, 2))
+
+send_command_btn = ctk.CTkButton(button_frame, text="Send", command=send_command, state="disabled")
+# send_btn.grid(row=6, column=0, padx=5, pady=(2, 10))
 
 root.mainloop()
