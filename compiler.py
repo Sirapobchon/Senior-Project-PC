@@ -58,24 +58,22 @@ def list_task():
 
         time.sleep(0.5)  # Short delay for MCU response
 
+        start_time = time.time()
+        timeout_seconds = 2
         response = []
-        ser.timeout = 2
         found_task = False  # Track if any task is found
 
-        while ser.in_waiting or len(response) == 0:
-            line = ser.readline().decode('utf-8', errors='ignore').strip()
-            if line:
-                if line.startswith("List of Tasks"):
-                    continue  # Ignore "List of Tasks"
-                
-                if line == "No stored tasks found.":
-                    continue  # Ignore this message
-                
-                if "Slot" in line or "T ID" in line:
-                    log_message(line)  # Send to monitor
-                    found_task = True  # At least one task exists
-                else:
-                    response.append(line)  # Collect valid responses
+        while time.time() - start_time < timeout_seconds:
+            if ser.in_waiting:
+                line = ser.readline().decode('utf-8', errors='ignore').strip()
+                if line:
+                    if "Slot" in line or "T ID" in line:
+                        log_message(line)
+                        found_task = True
+                    elif line != "List of Tasks:" and line != "No stored tasks found.":
+                        response.append(line)
+            else:
+                time.sleep(0.1)  # Prevent CPU overuse
         
         # Show first received line normally in the terminal
         if response:
@@ -149,26 +147,48 @@ def read_serial():
     root.after(100, read_serial)
 
 def send_task_file():
-    """ Send a binary task file """
+    """ Send a precompiled binary task file to the RTOS with a proper header. """
     global ser
     if not ser or not ser.is_open:
         messagebox.showwarning("Error", "Not connected to serial port!")
         return
-    
+
     file_path = filedialog.askopenfilename(filetypes=[("Binary Files", "*.bin")])
     if not file_path:
         return
 
+    # Temporary default values — can later prompt GUI fields for these
+    task_id = 1
+    task_type = 0
+    task_priority = 1
+    status = 1  # 1 = running
+    flash_address = (0).to_bytes(4, 'little')  # Placeholder
+
     try:
         with open(file_path, "rb") as file:
-            data = file.read()
-            ser.write(b"<TASK:")
-            ser.write(data)
-            ser.write(b">")
-            log_message(f"Sent task file: {file_path}")
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to send file\n{str(e)}")
+            binary_data = file.read()
 
+        binary_size = len(binary_data)
+        if binary_size > 512:
+            messagebox.showwarning("Too Large", "Binary exceeds 512-byte task limit.")
+            return
+
+        header = bytes([
+            task_id,
+            task_type,
+            task_priority,
+            binary_size & 0xFF,
+            (binary_size >> 8) & 0xFF,
+            status
+        ]) + flash_address
+
+        full_packet = b"<TASK:" + header + binary_data + b">"
+
+        ser.write(full_packet)
+        log_message(f"Sent task file '{file_path}' ({binary_size} bytes) with ID={task_id}, Type={task_type}")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to send file:\n{str(e)}")
 
 def clear_monitor():
     """Clear both the main monitor and the terminal monitor."""
