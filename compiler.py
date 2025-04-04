@@ -3,6 +3,7 @@ import serial
 import serial.tools.list_ports
 import time
 from tkinter import filedialog, messagebox
+import os
 
 # ---------------- Serial Communication ---------------- #
 ser = None
@@ -56,7 +57,7 @@ def list_task():
         ser.write(b"<LIST>\n")  # Send <LIST> command
         log_terminal("Sending <LIST> Command...")  
 
-        time.sleep(0.5)  # Short delay for MCU response
+        # time.sleep(0.5)  # Short delay for MCU response
 
         start_time = time.time()
         timeout_seconds = 2
@@ -105,8 +106,8 @@ def debug_task():
         
         # Wait and read response from ATMega328P
         response = []
-        ser.timeout = 2  # Set a timeout for reading
-        while ser.in_waiting or len(response) == 0:
+        start_time = time.time()
+        while time.time() - start_time < 2:
             line = ser.readline().decode('utf-8', errors='ignore').strip()
             if line:
                 response.append(line)
@@ -153,18 +154,11 @@ def send_task_file():
     file_path = filedialog.askopenfilename(filetypes=[("Binary Files", "*.bin")])
     if not file_path:
         return
-
-    # Temporary default values — can later prompt GUI fields for these
-    """ task_id = 1
-    task_type = 0
-    task_priority = 1
-    status = 1  # 1 = running
-    flash_address = (0).to_bytes(4, 'little')  # Placeholder """
         
     # --- Popup: Ask for Task Parameters ---
     popup = ctk.CTkToplevel(root)
     popup.title("Task Configuration")
-    popup.geometry("300x240")
+    popup.geometry("300x300")
 
     ctk.CTkLabel(popup, text="Task ID (0-9):").pack(pady=(10, 0))
     id_entry = ctk.CTkEntry(popup)
@@ -206,12 +200,31 @@ def send_task_file():
                 binary_size & 0xFF,
                 (binary_size >> 8) & 0xFF,
                 status
-            ]) + flash_address
+            ]) + flash_address # 6 + 4 = 10 bytes total
 
             full_packet = b"<TASK:" + header + binary_data + b">"
-
+            
+            ser.reset_input_buffer()
             ser.write(full_packet)
-            log_message(f"Sent task '{file_path}' with ID={task_id}, Type={task_type}, Size={binary_size}")
+            filename = os.path.basename(file_path)
+            log_terminal(f"Sent task '{filename}' with ID={task_id}, Type={task_type}, Size={binary_size}")
+            
+            time.sleep(0.5)  # Give MCU time to process and respond
+
+            response = []
+            start_time = time.time()
+            while time.time() - start_time < 2:
+                if ser.in_waiting:
+                    line = ser.readline().decode('utf-8', errors='ignore').strip()
+                    if line:
+                        response.append(line)
+                else:
+                    time.sleep(0.05)
+
+            if response:
+                for line in response:
+                    log_message(line)
+            
             popup.destroy()
 
         except Exception as e:
@@ -307,7 +320,7 @@ list_btn.grid(row=0, column=0, padx=5, pady=5)
 debug_btn = ctk.CTkButton(button_frame, text="Debug", command=debug_task)
 debug_btn.grid(row=1, column=0, padx=5, pady=5)
 
-task_btn = ctk.CTkButton(button_frame, text="Task", command=send_task_file)
+task_btn = ctk.CTkButton(button_frame, text="Sent Task", command=send_task_file)
 task_btn.grid(row=2, column=0, padx=5, pady=5)
 
 delete_btn = ctk.CTkButton(button_frame, text="Delete Task")
