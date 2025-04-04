@@ -3,6 +3,7 @@ import serial
 import serial.tools.list_ports
 import time
 from tkinter import filedialog, messagebox
+from task_compiler import compile_task_file
 import os
 
 # ---------------- Serial Communication ---------------- #
@@ -86,10 +87,6 @@ def list_task():
 
     except Exception as e:
         log_terminal(f"Error: {str(e)}")  # Handle errors
-
-
-
-
         
 def debug_task():
     global ser
@@ -151,14 +148,32 @@ def send_task_file():
         messagebox.showwarning("Error", "Not connected to serial port!")
         return
 
-    file_path = filedialog.askopenfilename(filetypes=[("Binary Files", "*.bin")])
+    file_path = filedialog.askopenfilename(filetypes=[("C or Binary Files", "*.c *.bin")])
     if not file_path:
+        return
+
+    try:
+        if file_path.endswith(".c"):
+            # Compile the C file to .bin first
+            bin_path = compile_task_file(file_path)
+        elif file_path.endswith(".bin"):
+            bin_path = file_path
+        else:
+            messagebox.showerror("Invalid file", "Please select a .c or .bin file.")
+            return
+    except Exception as e:
+        messagebox.showerror("Error", str(e))
         return
         
     # --- Popup: Ask for Task Parameters ---
     popup = ctk.CTkToplevel(root)
     popup.title("Task Configuration")
     popup.geometry("300x300")
+
+    popup.lift()                # Bring to front
+    popup.focus_force()         # Force focus on the popup
+    popup.attributes('-topmost', True)  # Keep it on top
+    popup.after(100, lambda: popup.attributes('-topmost', False))  # Reset topmost after showing
 
     ctk.CTkLabel(popup, text="Task ID (0-9):").pack(pady=(10, 0))
     id_entry = ctk.CTkEntry(popup)
@@ -181,7 +196,7 @@ def send_task_file():
             if not (0 <= task_id <= 9):
                 raise ValueError("Task ID must be between 0–9")
 
-            with open(file_path, "rb") as file:
+            with open(bin_path, "rb") as file:
                 binary_data = file.read()
 
             binary_size = len(binary_data)
