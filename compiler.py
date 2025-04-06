@@ -5,6 +5,10 @@ import time
 from tkinter import filedialog, messagebox
 from task_compiler import compile_task_file
 import os
+import tkinter as tk
+from tkinter import filedialog, messagebox
+
+
 
 # ---------------- Serial Communication ---------------- #
 ser = None
@@ -272,6 +276,274 @@ def log_terminal(msg):
         terminal_monitor.yview(ctk.END)
         terminal_monitor.configure(state="disabled")  # Re-enable read-only
 
+def delete_task():
+    """Popup to delete a task by ID and send a <DELETE:id> command to RTOS."""
+    global ser
+    if not ser or not ser.is_open:
+        messagebox.showwarning("Error", "Not connected to serial port!")
+        return
+
+    popup = ctk.CTkToplevel(root)
+    popup.title("Delete Task")
+    popup.geometry("250x180")
+
+    popup.lift()
+    popup.focus_force()
+    popup.attributes('-topmost', True)
+    popup.after(100, lambda: popup.attributes('-topmost', False))
+
+    ctk.CTkLabel(popup, text="Enter Task ID to Delete (0–9):").pack(pady=(20, 5))
+    id_entry = ctk.CTkEntry(popup)
+    id_entry.pack()
+
+    def send_delete_command():
+        try:
+            task_id = int(id_entry.get())
+            if not (0 <= task_id <= 9):
+                raise ValueError("Task ID must be between 0–9.")
+
+            # Send the delete command
+            delete_cmd = f"<DELETE:{task_id}>".encode("utf-8")
+            ser.reset_input_buffer()
+            ser.write(delete_cmd)
+
+            log_terminal(f"Sent delete request for Task ID={task_id}")
+
+            # Wait for response
+            response = []
+            start_time = time.time()
+            while time.time() - start_time < 2:
+                if ser.in_waiting:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if line:
+                        response.append(line)
+                else:
+                    time.sleep(0.05)
+
+            if response:
+                for line in response:
+                    log_message(line)
+
+            popup.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Invalid input or serial error\n{str(e)}")
+            popup.destroy()
+
+    delete_btn = ctk.CTkButton(popup, text="Delete Task", command=send_delete_command)
+    delete_btn.pack(pady=20)
+
+def handle_terminal_input(event=None):
+    command = terminal_entry.get().strip()
+    terminal_entry.delete(0, "end")  # Clear entry after input
+
+    if not command:
+        return
+
+    terminal_monitor.insert("end", f"> {command}\n")
+    terminal_monitor.see("end")
+
+    cmd_upper = command.upper()
+
+    # Match built-in commands
+    if cmd_upper == "DEBUG":
+        debug_task() 
+    elif cmd_upper == "LIST":
+        list_task()
+    elif cmd_upper == "DELETE":
+        delete_task()
+    else:
+        log_terminal(f"[ERROR] Unknown command: {command}")
+
+def edit_task():
+    global ser
+    if not ser or not ser.is_open:
+        messagebox.showwarning("Error", "Not connected to serial port!")
+        return
+
+    popup = ctk.CTkToplevel(root)
+    popup.title("Select Task to Edit")
+    popup.geometry("250x180")
+
+    popup.lift()
+    popup.focus_force()
+    popup.attributes('-topmost', True)
+    popup.after(100, lambda: popup.attributes('-topmost', False))
+
+    ctk.CTkLabel(popup, text="Enter Task ID to Edit (0–9):").pack(pady=(20, 5))
+    id_entry = ctk.CTkEntry(popup)
+    id_entry.pack()
+
+    def fetch_task_info():
+        try:
+            task_id = int(id_entry.get())
+            if not (0 <= task_id <= 9):
+                raise ValueError("Task ID must be between 0–9")
+
+            # Send <INFO:task_id> to RTOS
+            ser.reset_input_buffer()
+            ser.write(f"<INFO:{task_id}>".encode("utf-8"))
+            time.sleep(0.5)
+
+            # Read response
+            response = []
+            start_time = time.time()
+            while time.time() - start_time < 2:
+                if ser.in_waiting:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if line:
+                        response.append(line)
+                else:
+                    time.sleep(0.05)
+
+            if not response:
+                messagebox.showwarning("No Response", "No info received from RTOS.")
+                popup.destroy()
+                return
+
+            # Parse format like: ID=2 TYPE=1 PRIORITY=3 STATUS=1 SIZE=64
+            task_info = {}
+            for part in response[0].split():
+                 if "=" in part:
+                    key, value = part.split("=")
+                    task_info[key.lower()] = int(value)
+
+            popup.destroy()
+            open_edit_form(task_id, task_info)
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Could not fetch task info\n{str(e)}")
+            popup.destroy()
+
+    confirm_btn = ctk.CTkButton(popup, text="Fetch Task", command=fetch_task_info)
+    confirm_btn.pack(pady=20)
+
+
+def open_edit_form(task_id, task_info):
+    popup = ctk.CTkToplevel(root)
+    popup.title("Edit Task Metadata")
+    popup.geometry("300x300")
+
+    popup.lift()
+    popup.focus_force()
+    popup.attributes('-topmost', True)
+    popup.after(100, lambda: popup.attributes('-topmost', False))
+
+    ctk.CTkLabel(popup, text=f"Editing Task ID: {task_id}").pack(pady=(10, 0))
+
+    # Type
+    ctk.CTkLabel(popup, text="Task Type:").pack()
+    type_entry = ctk.CTkEntry(popup)
+    type_entry.insert(0, str(task_info.get("type", 0)))
+    type_entry.pack()
+
+    # Priority
+    ctk.CTkLabel(popup, text="Priority (1-3):").pack()
+    priority_entry = ctk.CTkEntry(popup)
+    priority_entry.insert(0, str(task_info.get("priority", 1)))
+    priority_entry.pack()
+
+    # Status
+    ctk.CTkLabel(popup, text="Status (0=Paused, 1=Running):").pack()
+    status_entry = ctk.CTkEntry(popup)
+    status_entry.insert(0, str(task_info.get("status", 1)))
+    status_entry.pack()
+
+    def submit_edit():
+        try:
+            task_type = int(type_entry.get())
+            task_priority = int(priority_entry.get())
+            task_status = int(status_entry.get())
+
+            if not (0 <= task_type <= 5):  # adjust range if needed
+                raise ValueError("Invalid Task Type")
+            if not (1 <= task_priority <= 3):
+                raise ValueError("Priority must be 1–3")
+            if task_status not in [0, 1]:
+                raise ValueError("Status must be 0 or 1")
+
+            # Send command to update metadata: <EDIT:id,type,priority,status>
+            cmd = f"<EDIT:{task_id},{task_type},{task_priority},{task_status}>"
+            ser.reset_input_buffer()
+            ser.write(cmd.encode("utf-8"))
+
+            log_terminal(f"Sent Edit Command for Task ID={task_id}")
+
+            # Wait for RTOS response
+            response = []
+            start_time = time.time()
+            while time.time() - start_time < 2:
+                if ser.in_waiting:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if line:
+                        response.append(line)
+                else:
+                    time.sleep(0.05)
+
+            if response:
+                for line in response:
+                    log_message(line)
+            else:
+                log_message("No response after edit.")
+
+            popup.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Edit failed\n{str(e)}")
+            popup.destroy()
+
+    send_btn = ctk.CTkButton(popup, text="Submit Edit", command=submit_edit)
+    send_btn.pack(pady=20)
+
+
+   
+    def submit_edit():
+        try:
+            task_type = int(type_entry.get())
+            task_priority = int(priority_entry.get())
+            task_status = int(status_entry.get())
+
+            if not (0 <= task_type <= 5):
+                raise ValueError("Invalid Task Type")
+            if not (1 <= task_priority <= 3):
+                raise ValueError("Priority must be 1–3")
+            if task_status not in [0, 1]:
+                raise ValueError("Status must be 0 or 1")
+
+            # Build and send metadata update command
+            cmd = f"<EDIT:{task_id},{task_type},{task_priority},{task_status}>"
+            ser.reset_input_buffer()
+            ser.write(cmd.encode("utf-8"))
+
+            log_terminal(f"Sent metadata edit for Task ID={task_id}")
+
+            # Wait for RTOS response
+            response = []
+            start_time = time.time()
+            while time.time() - start_time < 2:
+                if ser.in_waiting:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if line:
+                        response.append(line)
+                else:
+                    time.sleep(0.05)
+
+            if response:
+                for line in response:
+                    log_message(line)
+            else:
+                log_message("No response after edit.")
+
+            popup.destroy()
+
+        except Exception as e:
+            messagebox.showerror("Error", f"Edit failed\n{str(e)}")
+            popup.destroy()
+
+
+
+
+
 # ---------------- GUI Setup ---------------- #
 ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("blue")
@@ -322,8 +594,17 @@ terminal_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 terminal_frame.grid_rowconfigure(0, weight=1)  # Make terminal expand fully
 terminal_frame.grid_columnconfigure(0, weight=1)
 
+
+# Terminal Monitor
 terminal_monitor = ctk.CTkTextbox(terminal_frame, wrap="word")
-terminal_monitor.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
+terminal_monitor.grid(row=0, column=0, padx=5, pady=(5, 0), sticky="nsew")
+
+# Terminal Input Entry
+terminal_entry = ctk.CTkEntry(terminal_frame)
+terminal_entry.grid(row=1, column=0, padx=5, pady=(2, 5), sticky="ew")
+
+terminal_entry.bind("<Return>", handle_terminal_input)
+
 
 # Button Frame
 button_frame = ctk.CTkFrame(row2_frame)
@@ -332,23 +613,26 @@ button_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
 list_btn = ctk.CTkButton(button_frame, text="List Task", command=list_task)
 list_btn.grid(row=0, column=0, padx=5, pady=5)
 
-debug_btn = ctk.CTkButton(button_frame, text="Debug", command=debug_task)
-debug_btn.grid(row=1, column=0, padx=5, pady=5)
+#debug_btn = ctk.CTkButton(button_frame, text="Debug", command=debug_task)
+#debug_btn.grid(row=1, column=0, padx=5, pady=5)
 
 task_btn = ctk.CTkButton(button_frame, text="Sent Task", command=send_task_file)
 task_btn.grid(row=2, column=0, padx=5, pady=5)
 
-delete_btn = ctk.CTkButton(button_frame, text="Delete Task")
+delete_btn = ctk.CTkButton(button_frame, text="Delete Task", command=delete_task)
 delete_btn.grid(row=3, column=0, padx=5, pady=5)
 
 clear_btn = ctk.CTkButton(button_frame, text="Clear Monitor", command=clear_monitor)
 clear_btn.grid(row=4, column=0, padx=5, pady=5)
 
+edit_btn = ctk.CTkButton(button_frame, text="Edit Task",command=edit_task )
+edit_btn.grid(row=1, column=0, padx=5, pady=5)
+
 # Command Entry & Send Button (Disabled for now)
-command_entry = ctk.CTkEntry(button_frame, placeholder_text="Enter UART Command")
+#command_entry = ctk.CTkEntry(button_frame, placeholder_text="Enter UART Command")
 # command_entry.grid(row=5, column=0, padx=5, pady=(10, 2))
 
-send_command_btn = ctk.CTkButton(button_frame, text="Send", command=send_command, state="disabled")
+#send_command_btn = ctk.CTkButton(button_frame, text="Send", command=send_command, state="disabled")
 # send_btn.grid(row=6, column=0, padx=5, pady=(2, 10))
 
 root.mainloop()
