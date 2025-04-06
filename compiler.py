@@ -122,15 +122,6 @@ def debug_task():
     except Exception as e:
         log_message(f"Error: {str(e)}")  # Now errors also go to monitor
 
-def send_command():
-    """ Send command from input field """
-    global ser
-    if ser and ser.is_open:
-        command = command_entry.get().strip()
-        if command:
-            ser.write((command + "\n").encode())
-            log_message(f"> {command}")
-            command_entry.delete(0, ctk.END)
 
 def read_serial():
     """ Read incoming data """
@@ -585,14 +576,14 @@ monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")
 # Row 2 Frames: Terminal and Button Section (Equal Size)
 row2_frame = ctk.CTkFrame(root)
 row2_frame.grid(row=2, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")
-row2_frame.grid_columnconfigure(0, weight=1)  # Equal weight for both frames
-row2_frame.grid_columnconfigure(1, weight=1)
+row2_frame.grid_columnconfigure(0, weight=1)  
 
 # Terminal Frame
 terminal_frame = ctk.CTkFrame(row2_frame)
 terminal_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 terminal_frame.grid_rowconfigure(0, weight=1)  # Make terminal expand fully
 terminal_frame.grid_columnconfigure(0, weight=1)
+
 
 
 # Terminal Monitor
@@ -602,19 +593,15 @@ terminal_monitor.grid(row=0, column=0, padx=5, pady=(5, 0), sticky="nsew")
 # Terminal Input Entry
 terminal_entry = ctk.CTkEntry(terminal_frame)
 terminal_entry.grid(row=1, column=0, padx=5, pady=(2, 5), sticky="ew")
-
 terminal_entry.bind("<Return>", handle_terminal_input)
 
 
 # Button Frame
 button_frame = ctk.CTkFrame(row2_frame)
-button_frame.grid(row=0, column=1, padx=5, pady=5, sticky="nsew")
+button_frame.grid(row=0, column=1, padx=5, pady=5, sticky="n")
 
 list_btn = ctk.CTkButton(button_frame, text="List Task", command=list_task)
 list_btn.grid(row=0, column=0, padx=5, pady=5)
-
-#debug_btn = ctk.CTkButton(button_frame, text="Debug", command=debug_task)
-#debug_btn.grid(row=1, column=0, padx=5, pady=5)
 
 task_btn = ctk.CTkButton(button_frame, text="Sent Task", command=send_task_file)
 task_btn.grid(row=2, column=0, padx=5, pady=5)
@@ -627,12 +614,5 @@ clear_btn.grid(row=4, column=0, padx=5, pady=5)
 
 edit_btn = ctk.CTkButton(button_frame, text="Edit Task",command=edit_task )
 edit_btn.grid(row=1, column=0, padx=5, pady=5)
-
-# Command Entry & Send Button (Disabled for now)
-#command_entry = ctk.CTkEntry(button_frame, placeholder_text="Enter UART Command")
-# command_entry.grid(row=5, column=0, padx=5, pady=(10, 2))
-
-#send_command_btn = ctk.CTkButton(button_frame, text="Send", command=send_command, state="disabled")
-# send_btn.grid(row=6, column=0, padx=5, pady=(2, 10))
 
 root.mainloop()
