@@ -7,6 +7,7 @@ from task_compiler import compile_task_file
 import os
 import tkinter as tk
 from tkinter import filedialog, messagebox
+import datetime
 
 
 
@@ -531,13 +532,52 @@ def open_edit_form(task_id, task_info):
             messagebox.showerror("Error", f"Edit failed\n{str(e)}")
             popup.destroy()
 
+def update_running_task_status():
+    global ser
 
+    status_terminal.configure(state="normal")
+    status_terminal.delete("1.0", ctk.END)  # Clear previous status
 
+    now = datetime.datetime.now().strftime("[%H:%M:%S]")
+
+    if not ser or not ser.is_open:
+        status_terminal.insert(ctk.END, f"{now} Not connected to serial port.\n", "blue")
+    else:
+        try:
+            ser.reset_input_buffer()
+            ser.write(b"<LIST>\n")
+
+            start_time = time.time()
+            timeout = 2
+            running_tasks = []
+
+            while time.time() - start_time < timeout:
+                if ser.in_waiting:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if line and ("STATUS=1" in line or "Status: 01" in line):
+                        running_tasks.append(line)
+                else:
+                    time.sleep(0.05)
+
+            if running_tasks:
+                status_terminal.insert(ctk.END, f"{now} Running Tasks:\n", "blue")
+                for task in running_tasks:
+                    status_terminal.insert(ctk.END, f"{task}\n", "blue")
+            else:
+                status_terminal.insert(ctk.END, f"{now} No task running\n", "blue")
+
+        except Exception as e:
+            status_terminal.insert(ctk.END, f"{now} Status update error: {str(e)}\n", "blue")
+
+    status_terminal.configure(state="disabled")
+
+    # Schedule the next refresh
+    root.after(15000, update_running_task_status)
 
 
 # ---------------- GUI Setup ---------------- #
-ctk.set_appearance_mode("Dark")
-ctk.set_default_color_theme("blue")
+ctk.set_appearance_mode("system")
+ctk.set_default_color_theme("dark-blue")
 
 root = ctk.CTk()
 root.title("ATMega328P Serial Monitor & Task Sender")
@@ -569,6 +609,11 @@ connect_btn.grid(row=0, column=5, padx=5, pady=5)
 disconnect_btn = ctk.CTkButton(port_frame, text="Disconnect", command=disconnect_serial)
 disconnect_btn.grid(row=0, column=6, padx=5, pady=5)
 
+# Status Terminal (row 1)
+status_terminal = ctk.CTkTextbox(port_frame, height=100, wrap="word", state="disabled")
+status_terminal.grid(row=1, column=0, columnspan=7, padx=5, pady=(0, 5), sticky="ew")
+status_terminal.tag_config("blue", foreground="skyblue")
+
 # Serial Monitor (Auto Resize)
 monitor = ctk.CTkTextbox(root, height=250, wrap="word", state="disabled")
 monitor.grid(row=1, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")
@@ -579,21 +624,21 @@ row2_frame.grid(row=2, column=0, columnspan=7, padx=5, pady=5, sticky="nsew")
 row2_frame.grid_columnconfigure(0, weight=1)  
 
 # Terminal Frame
-terminal_frame = ctk.CTkFrame(row2_frame)
+terminal_frame = ctk.CTkFrame(row2_frame,)
 terminal_frame.grid(row=0, column=0, padx=5, pady=5, sticky="nsew")
 terminal_frame.grid_rowconfigure(0, weight=1)  # Make terminal expand fully
 terminal_frame.grid_columnconfigure(0, weight=1)
 
-
-
 # Terminal Monitor
-terminal_monitor = ctk.CTkTextbox(terminal_frame, wrap="word")
+terminal_monitor = ctk.CTkTextbox(terminal_frame, wrap="word", height=150)
 terminal_monitor.grid(row=0, column=0, padx=5, pady=(5, 0), sticky="nsew")
+
 
 # Terminal Input Entry
 terminal_entry = ctk.CTkEntry(terminal_frame)
 terminal_entry.grid(row=1, column=0, padx=5, pady=(2, 5), sticky="ew")
 terminal_entry.bind("<Return>", handle_terminal_input)
+
 
 
 # Button Frame
@@ -615,4 +660,6 @@ clear_btn.grid(row=4, column=0, padx=5, pady=5)
 edit_btn = ctk.CTkButton(button_frame, text="Edit Task",command=edit_task )
 edit_btn.grid(row=1, column=0, padx=5, pady=5)
 
+read_serial()
+update_running_task_status()
 root.mainloop()
